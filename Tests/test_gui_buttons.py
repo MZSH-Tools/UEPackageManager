@@ -35,11 +35,6 @@ with tempfile.TemporaryDirectory() as raw:
     project.mkdir()
     project_file = project / "Project A.uproject"
     project_file.write_text(json.dumps({"EngineAssociation": "5.7"}), encoding="utf-8")
-    second_project = root / "Project B"
-    second_project.mkdir()
-    second_project_file = second_project / "Project B.uproject"
-    second_project_file.write_text(json.dumps({"EngineAssociation": "5.7"}), encoding="utf-8")
-
     engine = root / "UE Test"
     run_uat = engine / "Engine" / "Build" / "BatchFiles" / "RunUAT.bat"
     run_uat.parent.mkdir(parents=True)
@@ -58,32 +53,35 @@ with tempfile.TemporaryDirectory() as raw:
 
     store = ProjectConfigStore(root / "LocalConfig")
     store.save(ProjectConfig(str(project), str(engine), str(output)))
-    store.save(ProjectConfig(str(second_project), str(engine), str(output)))
 
     application = QApplication.instance() or QApplication([])
+    empty_window = MainWindow(None)
+    assert not empty_window.project.text() and not empty_window.engine.text()
+    assert empty_window.project.isReadOnly() and empty_window.engine.isReadOnly()
+    assert not empty_window.start.isEnabled()
+    assert len([item for item in empty_window.findChildren(QPushButton) if item.text() == "选择"]) == 1
+    empty_window.close()
+
+    with patch("Source.gui.detect_engine_root", return_value=engine) as detect_engine:
+        automatic_window = MainWindow(project)
+    detect_engine.assert_called_once_with(project.resolve())
+    assert Path(automatic_window.project.text()) == project
+    assert Path(automatic_window.engine.text()) == engine
+    automatic_window.close()
+
     window = MainWindow(project)
     window.store = store
     window._load_config(store.load(project))
     window.show()
     application.processEvents()
 
-    select_buttons = sorted(
-        (item for item in window.findChildren(QPushButton) if item.text() == "选择"),
-        key=lambda item: item.mapTo(window, item.rect().topLeft()).y(),
-    )
-    assert len(select_buttons) == 3
-    with patch.object(QFileDialog, "getOpenFileName", return_value=(str(second_project_file), "")):
-        select_buttons[0].click()
-    assert Path(window.project.text()) == second_project
-    with patch.object(QFileDialog, "getOpenFileName", return_value=(str(project_file), "")):
-        select_buttons[0].click()
+    assert window.project.isReadOnly() and window.engine.isReadOnly()
+    select_buttons = [item for item in window.findChildren(QPushButton) if item.text() == "选择"]
+    assert len(select_buttons) == 1
     assert Path(window.project.text()) == project
-
-    with patch.object(QFileDialog, "getExistingDirectory", return_value=str(engine)):
-        select_buttons[1].click()
     assert Path(window.engine.text()) == engine
     with patch.object(QFileDialog, "getExistingDirectory", return_value=str(selected_output)):
-        select_buttons[2].click()
+        select_buttons[0].click()
     assert Path(window.output_directory.text()) == selected_output
 
     with patch.object(QFileDialog, "getOpenFileName", return_value=(str(extra_file), "")):

@@ -8,8 +8,8 @@
 
 - 双击EXE且不带参数：隐藏控制台并打开图形界面。
 - 在终端中带子命令运行：保留控制台和CLI输出。
-- EXE可放在任意目录；首次运行选择 `.uproject`。以后会打开上次选择的项目，但每个项目始终读取自己的独立配置。
-- 如果EXE位于项目根目录，或从项目根目录的终端启动，会自动识别该项目。
+- 将EXE放在包含 `.uproject` 的项目根目录并双击；项目与关联引擎会自动识别，GUI中不可选择或修改。
+- 从项目根目录的终端启动同样会自动识别；EXE放在其他目录时，GUI会拒绝打包并提示正确位置。
 - 当前EXE未进行商业代码签名；Windows首次运行可能显示SmartScreen提示，可使用Release附带的SHA-256文件核对下载完整性。
 
 ## 图形界面
@@ -18,8 +18,8 @@
 
 | 功能 | 作用 | 说明 |
 |---|---|---|
-| 项目 | 选择 `.uproject` | 切换项目时整体切换为该项目的独立配置 |
-| UE目录 | 指定Launcher或源码引擎根目录 | 留空时根据 `EngineAssociation` 自动检测 |
+| 项目 | 自动读取EXE或当前工作目录中的 `.uproject` | GUI只读，避免切换到其他项目 |
+| UE目录 | 根据 `EngineAssociation` 自动检测 | GUI只读；源码引擎可通过CLI配置 |
 | 输出目录 | 选择Archive输出位置 | 不允许直接使用项目根目录 |
 | 打包类型 | `DebugGame`、`Development`、`Test` 或 `Shipping` | Shipping额外启用压缩 |
 | 清理旧包 | 打包前清理当前输出路径中识别到的旧包 | 每次单独确认，不保存为项目默认值 |
@@ -35,7 +35,7 @@
 %LOCALAPPDATA%/UEPackageManager/Projects/<项目ID>/config.json
 ```
 
-项目路径、引擎目录、输出目录、打包类型和附加复制规则不会跨项目复用。工具另存一个 `recent.json`，只记录GUI上次打开的项目路径，不包含任何打包参数；CLI不会使用“最近项目”，无法从当前目录确定项目时必须显式传入 `--project-root`。
+项目路径、引擎目录、输出目录、打包类型和附加复制规则不会跨项目复用。GUI不读取“最近项目”，只绑定当前EXE或工作目录对应的项目；CLI无法从当前目录确定项目时必须显式传入 `--project-root`。
 
 ## CLI
 
@@ -58,8 +58,9 @@ UEPackageManager.exe package --project-root E:\Projects\MyGame
 ```bat
 conda env create -f environment.yml
 conda activate UEPackageManager
-python Main.py
-python Main.py validate --project-root E:\Projects\MyGame
+cd /d E:\Projects\MyGame
+python E:\Tools\UEPackageManager\Main.py
+python E:\Tools\UEPackageManager\Main.py validate --project-root E:\Projects\MyGame
 ```
 
 Windows也可双击 `Run.bat` 启动GUI，或使用 `CLI.bat` 运行命令。

@@ -35,34 +35,6 @@ class ProjectConfigStore:
             copy_rules=[],
         )
 
-    @property
-    def recent_path(self) -> Path:
-        return self.root.parent / "recent.json"
-
-    def recent_project(self) -> Path | None:
-        if not self.recent_path.is_file():
-            return None
-        try:
-            with self.recent_path.open("r", encoding="utf-8-sig") as stream:
-                data = json.load(stream)
-            if not isinstance(data, dict) or data.get("schema_version") != 1:
-                return None
-            value = data.get("project_root")
-            if not isinstance(value, str) or not value.strip():
-                return None
-            project_root = Path(value).resolve()
-            find_uproject(project_root)
-            return project_root
-        except (OSError, ValueError, json.JSONDecodeError):
-            return None
-
-    def remember_project(self, project_root: Path) -> Path:
-        root = project_root.resolve()
-        find_uproject(root)
-        self.recent_path.parent.mkdir(parents=True, exist_ok=True)
-        self._write_json(self.recent_path, {"schema_version": 1, "project_root": str(root)})
-        return self.recent_path
-
     def load(self, project_root: Path) -> ProjectConfig:
         root = project_root.resolve()
         path = self.path_for(root)

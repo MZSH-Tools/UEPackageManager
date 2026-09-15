@@ -45,8 +45,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("UE 项目打包工具")
         self.resize(980, 720)
         self.store = ProjectConfigStore()
-        initial_root = default_root or self.store.recent_project()
-        self.config = self.store.load(initial_root) if initial_root else ProjectConfig(project_root="")
+        self.config = self.store.load(default_root) if default_root else ProjectConfig(project_root="")
+        if self.config.project_root:
+            try:
+                self.config.engine_root = str(detect_engine_root(self.config.root_path))
+            except ValueError:
+                if self.config.engine_root:
+                    self.config.engine_root = str(detect_engine_root(self.config.root_path, self.config.engine_root))
         self.worker: PackageThread | None = None
         root = QWidget()
         self.setCentralWidget(root)
@@ -55,9 +60,10 @@ class MainWindow(QMainWindow):
         layout.addLayout(form)
         self.project = QLineEdit()
         self.project.setReadOnly(True)
-        form.addRow("项目目录", self._path_row(self.project, self._choose_project))
+        form.addRow("项目目录", self.project)
         self.engine = QLineEdit()
-        form.addRow("UE目录", self._path_row(self.engine, self._choose_engine))
+        self.engine.setReadOnly(True)
+        form.addRow("UE目录", self.engine)
         self.output_directory = QLineEdit()
         form.addRow("输出目录", self._path_row(self.output_directory, self._choose_output))
         self.configuration = QComboBox()
@@ -99,6 +105,8 @@ class MainWindow(QMainWindow):
         self.log.setReadOnly(True)
         layout.addWidget(self.log)
         self._load_config(self.config)
+        if not self.config.project_root:
+            self.log.append("未自动识别UE项目。请将EXE放到包含 .uproject 的项目根目录后重新启动。")
 
     @staticmethod
     def _path_row(field: QLineEdit, callback) -> QWidget:
@@ -148,20 +156,6 @@ class MainWindow(QMainWindow):
         self.rules.setItem(row, 1, QTableWidgetItem(rule.source))
         self.rules.setItem(row, 2, QTableWidgetItem(rule.target_directory))
 
-    def _choose_project(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(self, "选择 UE 项目", self.project.text(), "UE项目 (*.uproject)")
-        if filename:
-            try:
-                self._load_config(self.store.load(Path(filename).parent))
-                self.store.remember_project(Path(filename).parent)
-            except Exception as error:
-                QMessageBox.critical(self, "无法切换项目", str(error))
-
-    def _choose_engine(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "选择 UE 根目录", self.engine.text())
-        if directory:
-            self.engine.setText(directory)
-
     def _choose_output(self) -> None:
         directory = QFileDialog.getExistingDirectory(self, "选择打包输出目录", self.output_directory.text())
         if directory:
@@ -188,7 +182,6 @@ class MainWindow(QMainWindow):
             validate_copy_rules(config)
             build_command(config)
             path = self.store.save(config)
-            self.store.remember_project(config.root_path)
             self.config = config
             self.log.append(f"配置已保存：{path}")
             return True

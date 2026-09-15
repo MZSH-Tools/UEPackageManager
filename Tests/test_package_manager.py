@@ -61,13 +61,6 @@ with tempfile.TemporaryDirectory() as raw:
     except ValueError:
         pass
     store.save(config_b)
-    assert store.recent_project() is None
-    store.remember_project(project_a)
-    assert store.recent_project() == project_a
-    store.recent_path.write_text('{"schema_version":1}', encoding="utf-8")
-    assert store.recent_project() is None
-    store.remember_project(project_a)
-
     engine = root / "UE Test 5.7"
     run_uat = engine / "Engine" / "Build" / "BatchFiles" / "RunUAT.bat"
     run_uat.parent.mkdir(parents=True)
