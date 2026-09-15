@@ -15,6 +15,49 @@ from .models import CONFIGURATIONS, PLATFORMS, CopyRule, ProjectConfig
 EXCLUDED_NAMES = {".agents", ".codex", ".git", ".idea", ".svn", ".trash", ".vs", "__pycache__"}
 
 
+def _create_windows_job(process: subprocess.Popen[str]) -> int | None:
+    if os.name != "nt":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    handle = kernel32.CreateJobObjectW(None, None)
+    if not handle:
+        return None
+    if not kernel32.AssignProcessToJobObject(handle, wintypes.HANDLE(process._handle)):
+        kernel32.CloseHandle(handle)
+        return None
+    return int(handle)
+
+
+def _terminate_windows_job(handle: int | None) -> bool:
+    if os.name != "nt" or not handle:
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel32.TerminateJobObject.restype = wintypes.BOOL
+    return bool(kernel32.TerminateJobObject(wintypes.HANDLE(handle), 130))
+
+
+def _close_windows_job(handle: int | None) -> None:
+    if os.name != "nt" or not handle:
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle(wintypes.HANDLE(handle))
+
+
 def find_uproject(project_root: Path) -> Path:
     root = project_root.resolve()
     preferred = root / f"{root.name}.uproject"
@@ -178,13 +221,16 @@ def copy_rule(project_root: Path, package_root: Path, rule: CopyRule) -> tuple[i
 class PackageRunner:
     def __init__(self) -> None:
         self._process: subprocess.Popen[str] | None = None
+        self._job_handle: int | None = None
         self._cancelled = threading.Event()
 
     def cancel(self) -> None:
         self._cancelled.set()
         process = self._process
         if process and process.poll() is None:
-            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True, check=False)
+            _terminate_windows_job(self._job_handle)
+            if process.poll() is None:
+                process.kill()
 
     def run(self, config: ProjectConfig, on_output: Callable[[str], None] = print, copy_extras: bool = True) -> Path:
         command, project_file = build_command(config)
@@ -192,14 +238,21 @@ class PackageRunner:
             validate_copy_rules(config)
         on_output("执行命令：" + command)
         self._cancelled.clear()
-        self._process = subprocess.Popen(
+        process = subprocess.Popen(
             command, cwd=config.root_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace", bufsize=1,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
-        assert self._process.stdout is not None
-        for line in self._process.stdout:
-            on_output(line.rstrip())
-        return_code = self._process.wait()
+        self._job_handle = _create_windows_job(process)
+        self._process = process
+        try:
+            assert process.stdout is not None
+            for line in process.stdout:
+                on_output(line.rstrip())
+            return_code = process.wait()
+        finally:
+            _close_windows_job(self._job_handle)
+            self._job_handle = None
         if self._cancelled.is_set():
             raise RuntimeError("打包已取消。")
         if return_code != 0:
