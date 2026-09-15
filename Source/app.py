@@ -33,7 +33,9 @@ def _hide_packaged_console() -> None:
         return
     import ctypes
 
-    ctypes.windll.kernel32.FreeConsole()
+    console = ctypes.windll.kernel32.GetConsoleWindow()
+    if console:
+        ctypes.windll.user32.ShowWindow(console, 0)
 
 
 def main(argv: list[str] | None = None) -> int:

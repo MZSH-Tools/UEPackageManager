@@ -5,12 +5,29 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from Source.config_store import ProjectConfigStore
+from Source import app
 from Source.models import CopyRule
 from Source.packager import PackageRunner, build_command, copy_rule, validate_target_directory
+
+
+kernel32 = SimpleNamespace(GetConsoleWindow=Mock(return_value=123))
+user32 = SimpleNamespace(ShowWindow=Mock())
+fake_ctypes = SimpleNamespace(windll=SimpleNamespace(kernel32=kernel32, user32=user32))
+with (
+    patch.object(app.os, "name", "nt"),
+    patch.object(app.sys, "frozen", True, create=True),
+    patch.dict(app.os.environ, {"UEPM_DEBUG_CONSOLE": "0"}),
+    patch.dict(sys.modules, {"ctypes": fake_ctypes}),
+):
+    app._hide_packaged_console()
+kernel32.GetConsoleWindow.assert_called_once_with()
+user32.ShowWindow.assert_called_once_with(123, 0)
 
 
 def make_project(root: Path, name: str, with_data: bool = True) -> Path:

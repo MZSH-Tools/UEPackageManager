@@ -18,7 +18,7 @@ def _add_project_argument(parser: argparse.ArgumentParser, default_root: Path | 
 
 def create_parser(default_root: Path | None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="UE 项目打包与附加文件部署工具")
-    parser.add_argument("--version", action="version", version="UEPackageManager 1.0.0")
+    parser.add_argument("--version", action="version", version="UEPackageManager 1.0.1")
     subparsers = parser.add_subparsers(dest="command", required=True)
     show = subparsers.add_parser("config-show", help="显示当前项目的本地配置")
     _add_project_argument(show, default_root)
