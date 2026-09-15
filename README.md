@@ -21,7 +21,7 @@
 | 项目 | 选择 `.uproject` | 切换项目时整体切换为该项目的独立配置 |
 | UE目录 | 指定Launcher或源码引擎根目录 | 留空时根据 `EngineAssociation` 自动检测 |
 | 输出目录 | 选择Archive输出位置 | 不允许直接使用项目根目录 |
-| 打包类型 | `Development` 或 `Shipping` | Shipping额外启用压缩 |
+| 打包类型 | `DebugGame`、`Development`、`Test` 或 `Shipping` | Shipping额外启用压缩 |
 | 附加文件 | 成功后复制文件或文件夹 | 可分别指定包内目标子目录 |
 
 附加复制仅在UE打包成功后执行。目录复制会跳过 `.trash`、`.svn`、`.git`、`.codex`、`.agents`、`.vs`、`.idea`、`__pycache__` 和 `.pyc`，复制后检查文件完整性。目标位置必须是包根目录内的相对目录，禁止绝对路径、盘符和 `..`。
@@ -74,7 +74,7 @@ Build.bat
 ## 当前范围
 
 - 支持Windows上的Win64项目打包。
-- 支持 `Development` 与 `Shipping`。
+- 支持 `DebugGame`、`Development`、`Test` 与 `Shipping`；不提供通常需要源码引擎的完整 `Debug`。
 - 支持Epic Launcher引擎和手动指定的源码引擎。
 - 不负责插件独立打包；插件发布请使用对应插件打包工具。
 - 不自动关闭Unreal Editor，不删除项目或输出目录，不执行Git、SVN或Perforce操作。

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from Source.config_store import ProjectConfigStore
 from Source import app
-from Source.models import CopyRule
+from Source.models import CONFIGURATIONS, CopyRule
 from Source.packager import PackageRunner, build_command, copy_rule, validate_target_directory
 
 
@@ -73,11 +73,13 @@ with tempfile.TemporaryDirectory() as raw:
     run_uat.parent.mkdir(parents=True)
     run_uat.touch()
     config_a.engine_root = str(engine)
-    config_a.configuration = "Shipping"
-    command, project_file = build_command(config_a)
-    assert project_file.name == "Project & A.uproject"
-    assert "-clientconfig=Shipping" in command and "-compressed" in command
-    assert str(root / "OutputA") in command
+    for configuration in CONFIGURATIONS:
+        config_a.configuration = configuration
+        command, project_file = build_command(config_a)
+        assert project_file.name == "Project & A.uproject"
+        assert f"-clientconfig={configuration}" in command
+        assert ("-compressed" in command) == (configuration == "Shipping")
+        assert str(root / "OutputA") in command
 
     source = project_a / "Extra"
     source.mkdir()
@@ -99,6 +101,7 @@ with tempfile.TemporaryDirectory() as raw:
         encoding="utf-8",
     )
     config_a.output_directory = str(fake_output)
+    config_a.configuration = "Shipping"
     config_a.copy_rules = [CopyRule("Extra", "Extras")]
     completed_root = PackageRunner().run(config_a, on_output=print)
     assert completed_root == fake_output / "Windows"

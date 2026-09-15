@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-CONFIGURATIONS = ("Development", "Shipping")
+CONFIGURATIONS = ("DebugGame", "Development", "Test", "Shipping")
 PLATFORMS = ("Win64",)
 
 
