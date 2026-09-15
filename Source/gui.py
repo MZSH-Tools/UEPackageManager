@@ -11,7 +11,10 @@ from PySide6.QtWidgets import (
 
 from .config_store import ProjectConfigStore
 from .models import CONFIGURATIONS, CopyRule, ProjectConfig
-from .packager import PackageRunner, detect_engine_root, validate_copy_rules, validate_target_directory
+from .packager import (
+    PackageRunner, build_command, detect_engine_root, find_existing_package_root, validate_copy_rules,
+    validate_target_directory,
+)
 
 
 class PackageThread(QThread):
@@ -19,14 +22,15 @@ class PackageThread(QThread):
     completed = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, config: ProjectConfig) -> None:
+    def __init__(self, config: ProjectConfig, clean_output: bool = False) -> None:
         super().__init__()
         self.config = config
+        self.clean_output = clean_output
         self.runner = PackageRunner()
 
     def run(self) -> None:
         try:
-            package_root = self.runner.run(self.config, self.output.emit)
+            package_root = self.runner.run(self.config, self.output.emit, clean_output=self.clean_output)
             self.completed.emit(str(package_root))
         except Exception as error:
             self.failed.emit(str(error))
@@ -59,6 +63,8 @@ class MainWindow(QMainWindow):
         self.configuration = QComboBox()
         self.configuration.addItems(CONFIGURATIONS)
         form.addRow("打包类型", self.configuration)
+        self.clean_output = QCheckBox("打包前清理当前输出路径中的旧包（每次单独确认）")
+        form.addRow("清理旧包", self.clean_output)
         layout.addWidget(QLabel("附加文件和文件夹（目标位置相对打包根目录）"))
         self.rules = QTableWidget(0, 3)
         self.rules.setHorizontalHeaderLabels(["启用", "源文件或文件夹", "目标子目录"])
@@ -180,6 +186,7 @@ class MainWindow(QMainWindow):
             config = self._collect_config()
             config.engine_root = str(detect_engine_root(config.root_path, config.engine_root))
             validate_copy_rules(config)
+            build_command(config)
             path = self.store.save(config)
             self.store.remember_project(config.root_path)
             self.config = config
@@ -192,10 +199,23 @@ class MainWindow(QMainWindow):
     def _start(self) -> None:
         if not self._save():
             return
+        if self.clean_output.isChecked():
+            target = find_existing_package_root(self.config)
+            if target is not None:
+                answer = QMessageBox.question(
+                    self,
+                    "确认清理旧包",
+                    f"将递归删除当前输出路径中识别到的旧包：\n{target}\n\n原来的其他输出路径不会受影响。",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
+                )
+                if answer != QMessageBox.Yes:
+                    self.log.append("已取消清理和本次打包。")
+                    return
         self.start.setEnabled(False)
         self.stop.setEnabled(True)
         self.log.append("开始打包……")
-        self.worker = PackageThread(self.config)
+        self.worker = PackageThread(self.config, self.clean_output.isChecked())
         self.worker.output.connect(self.log.append)
         self.worker.completed.connect(self._completed)
         self.worker.failed.connect(self._failed)

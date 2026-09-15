@@ -22,6 +22,7 @@
 | UE目录 | 指定Launcher或源码引擎根目录 | 留空时根据 `EngineAssociation` 自动检测 |
 | 输出目录 | 选择Archive输出位置 | 不允许直接使用项目根目录 |
 | 打包类型 | `DebugGame`、`Development`、`Test` 或 `Shipping` | Shipping额外启用压缩 |
+| 清理旧包 | 打包前清理当前输出路径中识别到的旧包 | 每次单独确认，不保存为项目默认值 |
 | 附加文件 | 成功后复制文件或文件夹 | 可分别指定包内目标子目录 |
 
 附加复制仅在UE打包成功后执行。目录复制会跳过 `.trash`、`.svn`、`.git`、`.codex`、`.agents`、`.vs`、`.idea`、`__pycache__` 和 `.pyc`，复制后检查文件完整性。目标位置必须是包根目录内的相对目录，禁止绝对路径、盘符和 `..`。
@@ -50,7 +51,7 @@ UEPackageManager.exe package --project-root E:\Projects\MyGame --dry-run
 UEPackageManager.exe package --project-root E:\Projects\MyGame
 ```
 
-在项目根目录执行时，`--project-root` 可以省略。`--dry-run` 只输出UAT命令，不启动打包；`--no-copy` 可跳过附加文件部署。命令成功返回 `0`，参数、配置或执行错误返回 `2`。
+在项目根目录执行时，`--project-root` 可以省略。`--dry-run` 只输出UAT命令，不启动打包；`--no-copy` 可跳过附加文件部署；`--clean-output` 仅在本次打包前清理当前输出路径中识别到的旧包。切换输出路径后不会清理原来的路径。命令成功返回 `0`，参数、配置或执行错误返回 `2`。
 
 ## 源码运行
 

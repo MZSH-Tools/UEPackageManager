@@ -18,7 +18,7 @@ def _add_project_argument(parser: argparse.ArgumentParser, default_root: Path | 
 
 def create_parser(default_root: Path | None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="UE 项目打包与附加文件部署工具")
-    parser.add_argument("--version", action="version", version="UEPackageManager 1.1.1")
+    parser.add_argument("--version", action="version", version="UEPackageManager 1.2.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
     show = subparsers.add_parser("config-show", help="显示当前项目的本地配置")
     _add_project_argument(show, default_root)
@@ -43,6 +43,7 @@ def create_parser(default_root: Path | None) -> argparse.ArgumentParser:
     package.add_argument("--configuration", choices=CONFIGURATIONS)
     package.add_argument("--output")
     package.add_argument("--no-copy", action="store_true")
+    package.add_argument("--clean-output", action="store_true", help="打包前清理当前输出路径中识别到的旧包")
     package.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -96,6 +97,6 @@ def main(argv: list[str], default_root: Path | None) -> int:
             print(command)
             return 0
         store.save(config)
-        PackageRunner().run(config, copy_extras=not args.no_copy)
+        PackageRunner().run(config, copy_extras=not args.no_copy, clean_output=args.clean_output)
         return 0
     return 2

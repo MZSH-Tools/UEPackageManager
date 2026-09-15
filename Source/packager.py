@@ -176,6 +176,33 @@ def find_package_root(output_directory: Path, project_name: str) -> Path:
     raise FileNotFoundError(f"打包成功但无法在输出目录定位顶层 {project_name}.exe：{output}")
 
 
+def find_existing_package_root(config: ProjectConfig) -> Path | None:
+    project_name = find_uproject(config.root_path).stem
+    try:
+        return find_package_root(Path(config.output_directory), project_name)
+    except FileNotFoundError:
+        return None
+
+
+def clean_existing_package(config: ProjectConfig, on_output: Callable[[str], None] = print) -> Path | None:
+    target = find_existing_package_root(config)
+    if target is None:
+        on_output("当前输出路径没有可识别的旧包，无需清理。")
+        return None
+    output = Path(config.output_directory).resolve()
+    project_root = config.root_path
+    if target != output and not target.is_relative_to(output):
+        raise ValueError(f"旧包目录越出当前输出路径，拒绝清理：{target}")
+    if target == project_root or project_root.is_relative_to(target) or target == Path(target.anchor):
+        raise ValueError(f"旧包目录范围不安全，拒绝清理：{target}")
+    project_name = find_uproject(project_root).stem
+    if not (target / f"{project_name}.exe").is_file():
+        raise ValueError(f"旧包目录缺少项目入口，拒绝清理：{target}")
+    shutil.rmtree(target)
+    on_output(f"已清理当前输出路径的旧包：{target}")
+    return target
+
+
 def _should_skip(path: Path) -> bool:
     return any(part in EXCLUDED_NAMES for part in path.parts) or path.suffix.lower() == ".pyc"
 
@@ -232,10 +259,18 @@ class PackageRunner:
             if process.poll() is None:
                 process.kill()
 
-    def run(self, config: ProjectConfig, on_output: Callable[[str], None] = print, copy_extras: bool = True) -> Path:
+    def run(
+        self,
+        config: ProjectConfig,
+        on_output: Callable[[str], None] = print,
+        copy_extras: bool = True,
+        clean_output: bool = False,
+    ) -> Path:
         command, project_file = build_command(config)
         if copy_extras:
             validate_copy_rules(config)
+        if clean_output:
+            clean_existing_package(config, on_output)
         on_output("执行命令：" + command)
         self._cancelled.clear()
         process = subprocess.Popen(

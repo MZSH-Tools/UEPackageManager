@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from Source.config_store import ProjectConfigStore
 from Source import app
 from Source.models import CONFIGURATIONS, CopyRule
-from Source.packager import PackageRunner, build_command, copy_rule, validate_target_directory
+from Source.packager import PackageRunner, build_command, clean_existing_package, copy_rule, validate_target_directory
 
 
 kernel32 = SimpleNamespace(GetConsoleWindow=Mock(return_value=123))
@@ -103,6 +103,17 @@ with tempfile.TemporaryDirectory() as raw:
     config_a.output_directory = str(fake_output)
     config_a.configuration = "Shipping"
     config_a.copy_rules = [CopyRule("Extra", "Extras")]
+    old_output = root / "PreviousOutput" / "Windows"
+    old_output.mkdir(parents=True)
+    (old_output / "Project & A.exe").touch()
+    (old_output / "must-remain.txt").write_text("old", encoding="utf-8")
+    current_old_package = fake_output / "Windows"
+    current_old_package.mkdir(parents=True)
+    (current_old_package / "Project & A.exe").touch()
+    (current_old_package / "stale.txt").write_text("stale", encoding="utf-8")
+    assert clean_existing_package(config_a) == current_old_package
+    assert not current_old_package.exists()
+    assert (old_output / "must-remain.txt").is_file()
     completed_root = PackageRunner().run(config_a, on_output=print)
     assert completed_root == fake_output / "Windows"
     assert (completed_root / "Extras" / "Extra" / "keep.txt").is_file()

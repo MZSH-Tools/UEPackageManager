@@ -46,6 +46,10 @@ with tempfile.TemporaryDirectory() as raw:
     run_uat.touch()
     output = root / "Output"
     selected_output = root / "Selected Output"
+    old_package = output / "Windows"
+    old_package.mkdir(parents=True)
+    (old_package / "Project A.exe").touch()
+    (old_package / "must-remain.txt").write_text("old", encoding="utf-8")
     extra_file = root / "notice.txt"
     extra_file.write_text("file", encoding="utf-8")
     extra_directory = root / "ExtraDirectory"
@@ -105,14 +109,27 @@ with tempfile.TemporaryDirectory() as raw:
         "exit /b 0\n",
         encoding="utf-8",
     )
-    with patch.object(QMessageBox, "information") as information, patch.object(QMessageBox, "critical") as critical:
+    current_old_package = selected_output / "Windows"
+    current_old_package.mkdir(parents=True)
+    (current_old_package / "Project A.exe").touch()
+    (current_old_package / "stale.txt").write_text("stale", encoding="utf-8")
+    window.clean_output.setChecked(True)
+    with (
+        patch.object(QMessageBox, "question", return_value=QMessageBox.Yes) as question,
+        patch.object(QMessageBox, "information") as information,
+        patch.object(QMessageBox, "critical") as critical,
+    ):
         button(window, "开始打包").click()
         wait_for_thread(application, window)
+    question.assert_called_once()
     information.assert_called_once()
     critical.assert_not_called()
+    assert not (current_old_package / "stale.txt").exists()
+    assert (old_package / "must-remain.txt").is_file()
     assert (selected_output / "Windows" / "notice.txt").read_text(encoding="utf-8") == "file"
 
     run_uat.write_text("@echo off\nping 127.0.0.1 -n 30 >nul\nexit /b 0\n", encoding="utf-8")
+    window.clean_output.setChecked(False)
     with patch.object(QMessageBox, "information") as information, patch.object(QMessageBox, "critical") as critical:
         button(window, "开始打包").click()
         deadline = time.monotonic() + 5
