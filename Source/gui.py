@@ -13,7 +13,7 @@ from .config_store import ProjectConfigStore
 from .models import CONFIGURATIONS, CopyRule, ProjectConfig
 from .packager import (
     PackageRunner, build_command, detect_engine_root, find_existing_package_root, validate_copy_rules,
-    validate_target_directory,
+    validate_recursive_ignores, validate_target_directory,
 )
 
 
@@ -72,11 +72,12 @@ class MainWindow(QMainWindow):
         self.clean_output = QCheckBox("打包前清理当前输出路径中的旧包（每次单独确认）")
         form.addRow("清理旧包", self.clean_output)
         layout.addWidget(QLabel("附加文件和文件夹（目标位置相对打包根目录）"))
-        self.rules = QTableWidget(0, 3)
-        self.rules.setHorizontalHeaderLabels(["启用", "源文件或文件夹", "目标子目录"])
+        self.rules = QTableWidget(0, 4)
+        self.rules.setHorizontalHeaderLabels(["启用", "源文件或文件夹", "目标子目录", "递归忽略（;分隔）"])
         self.rules.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.rules.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.rules.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.rules.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         layout.addWidget(self.rules)
         actions = QHBoxLayout()
         add_file = QPushButton("添加文件")
@@ -139,8 +140,10 @@ class MainWindow(QMainWindow):
             enabled = self.rules.cellWidget(row, 0)
             source = self.rules.item(row, 1).text().strip()
             target = self.rules.item(row, 2).text().strip() or "."
+            recursive_ignores = [item.strip() for item in self.rules.item(row, 3).text().split(";") if item.strip()]
             validate_target_directory(target)
-            rules.append(CopyRule(source, target, isinstance(enabled, QCheckBox) and enabled.isChecked()))
+            validate_recursive_ignores(recursive_ignores)
+            rules.append(CopyRule(source, target, isinstance(enabled, QCheckBox) and enabled.isChecked(), recursive_ignores))
         return ProjectConfig(
             project_root=str(Path(self.project.text()).resolve()), engine_root=self.engine.text().strip(),
             output_directory=str(Path(self.output_directory.text()).resolve()),
@@ -155,6 +158,7 @@ class MainWindow(QMainWindow):
         self.rules.setCellWidget(row, 0, enabled)
         self.rules.setItem(row, 1, QTableWidgetItem(rule.source))
         self.rules.setItem(row, 2, QTableWidgetItem(rule.target_directory))
+        self.rules.setItem(row, 3, QTableWidgetItem("; ".join(rule.recursive_ignores)))
 
     def _choose_output(self) -> None:
         directory = QFileDialog.getExistingDirectory(self, "选择打包输出目录", self.output_directory.text())

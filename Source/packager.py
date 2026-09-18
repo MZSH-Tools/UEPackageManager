@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import threading
+from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
@@ -160,6 +161,14 @@ def validate_copy_rules(config: ProjectConfig) -> None:
         if not source.exists():
             raise ValueError(f"附加文件不存在：{source}")
         validate_target_directory(rule.target_directory)
+        validate_recursive_ignores(rule.recursive_ignores)
+
+
+def validate_recursive_ignores(patterns: list[str]) -> None:
+    for pattern in patterns:
+        normalized = pattern.strip()
+        if not normalized or normalized in {".", ".."} or "/" in normalized or "\\" in normalized:
+            raise ValueError(f"递归忽略项必须是文件或文件夹名称，不得包含路径：{pattern}")
 
 
 def find_package_root(output_directory: Path, project_name: str) -> Path:
@@ -203,8 +212,11 @@ def clean_existing_package(config: ProjectConfig, on_output: Callable[[str], Non
     return target
 
 
-def _should_skip(path: Path) -> bool:
-    return any(part in EXCLUDED_NAMES for part in path.parts) or path.suffix.lower() == ".pyc"
+def _should_skip(path: Path, recursive_ignores: list[str] | None = None) -> bool:
+    if any(part.casefold() in EXCLUDED_NAMES for part in path.parts) or path.suffix.lower() == ".pyc":
+        return True
+    patterns = [pattern.strip().casefold() for pattern in recursive_ignores or []]
+    return any(fnmatchcase(part.casefold(), pattern) for part in path.parts for pattern in patterns)
 
 
 def _sha256(path: Path) -> str:
@@ -231,7 +243,9 @@ def copy_rule(project_root: Path, package_root: Path, rule: CopyRule) -> tuple[i
         destinations = [
             (path, destination_root / path.relative_to(source))
             for path in source.rglob("*")
-            if path.is_file() and not path.is_symlink() and not _should_skip(path.relative_to(source))
+            if path.is_file()
+            and not path.is_symlink()
+            and not _should_skip(path.relative_to(source), rule.recursive_ignores)
         ]
     else:
         raise FileNotFoundError(source)

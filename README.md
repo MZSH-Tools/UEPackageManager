@@ -23,9 +23,9 @@
 | 输出目录 | 选择Archive输出位置 | 不允许直接使用项目根目录 |
 | 打包类型 | `DebugGame`、`Development`、`Test` 或 `Shipping` | Shipping额外启用压缩 |
 | 清理旧包 | 打包前清理当前输出路径中识别到的旧包 | 每次单独确认，不保存为项目默认值 |
-| 附加文件 | 成功后复制文件或文件夹 | 可分别指定包内目标子目录 |
+| 附加文件 | 成功后复制文件或文件夹 | 可分别指定包内目标子目录和递归忽略项 |
 
-附加复制仅在UE打包成功后执行。目录复制会跳过 `.trash`、`.svn`、`.git`、`.codex`、`.agents`、`.vs`、`.idea`、`__pycache__` 和 `.pyc`，复制后检查文件完整性。目标位置必须是包根目录内的相对目录，禁止绝对路径、盘符和 `..`。
+附加复制仅在UE打包成功后执行。目录复制会跳过 `.trash`、`.svn`、`.git`、`.codex`、`.agents`、`.vs`、`.idea`、`__pycache__` 和 `.pyc`，复制后检查文件完整性。每条规则还可使用分号分隔的名称模式递归忽略任意层级中的文件或文件夹，支持 `*`、`?`，例如 `README*.md; Cache`。目标位置必须是包根目录内的相对目录，禁止绝对路径、盘符和 `..`；递归忽略项只填写名称模式，不能包含路径。
 
 ## 项目配置隔离
 
@@ -44,7 +44,7 @@ UEPackageManager.exe --version
 UEPackageManager.exe config-show --project-root E:\Projects\MyGame
 UEPackageManager.exe configure --project-root E:\Projects\MyGame --configuration Shipping --output E:\Builds\MyGame
 UEPackageManager.exe copy-list --project-root E:\Projects\MyGame
-UEPackageManager.exe copy-add --project-root E:\Projects\MyGame --source E:\Assets\Notice.txt --target-directory Docs
+UEPackageManager.exe copy-add --project-root E:\Projects\MyGame --source E:\Assets\Data --target-directory . --ignore README*.md --ignore Cache
 UEPackageManager.exe copy-remove --project-root E:\Projects\MyGame --index 0
 UEPackageManager.exe validate --project-root E:\Projects\MyGame
 UEPackageManager.exe package --project-root E:\Projects\MyGame --dry-run

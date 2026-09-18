@@ -14,13 +14,18 @@ class CopyRule:
     source: str
     target_directory: str = "."
     enabled: bool = True
+    recursive_ignores: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CopyRule":
+        raw_ignores = data.get("recursive_ignores", [])
         return cls(
             source=str(data.get("source", "")),
             target_directory=str(data.get("target_directory", ".")),
             enabled=bool(data.get("enabled", True)),
+            recursive_ignores=[
+                str(item) for item in raw_ignores if str(item).strip()
+            ] if isinstance(raw_ignores, list) else [],
         )
 
 

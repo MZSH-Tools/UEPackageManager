@@ -18,7 +18,7 @@ def _add_project_argument(parser: argparse.ArgumentParser, default_root: Path | 
 
 def create_parser(default_root: Path | None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="UE 项目打包与附加文件部署工具")
-    parser.add_argument("--version", action="version", version="UEPackageManager 2.0.0")
+    parser.add_argument("--version", action="version", version="UEPackageManager 2.1.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
     show = subparsers.add_parser("config-show", help="显示当前项目的本地配置")
     _add_project_argument(show, default_root)
@@ -33,6 +33,10 @@ def create_parser(default_root: Path | None) -> argparse.ArgumentParser:
     _add_project_argument(copy_add, default_root)
     copy_add.add_argument("--source", required=True)
     copy_add.add_argument("--target-directory", default=".")
+    copy_add.add_argument(
+        "--ignore", action="append", default=[],
+        help="递归忽略任意层级中匹配的文件或文件夹名称，可重复指定并支持 *、?",
+    )
     copy_remove = subparsers.add_parser("copy-remove", help="按序号删除当前项目的附加复制规则")
     _add_project_argument(copy_remove, default_root)
     copy_remove.add_argument("--index", type=int, required=True)
@@ -68,7 +72,7 @@ def main(argv: list[str], default_root: Path | None) -> int:
         print(json.dumps([rule.__dict__ for rule in config.copy_rules], ensure_ascii=False, indent=2))
         return 0
     if args.command == "copy-add":
-        config.copy_rules.append(CopyRule(args.source, args.target_directory))
+        config.copy_rules.append(CopyRule(args.source, args.target_directory, recursive_ignores=args.ignore))
         validate_copy_rules(config)
         print(store.save(config))
         return 0

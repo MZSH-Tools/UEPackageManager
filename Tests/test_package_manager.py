@@ -12,8 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from Source.config_store import ProjectConfigStore
 from Source import app
+from Source.cli import create_parser
 from Source.models import CONFIGURATIONS, CopyRule
-from Source.packager import PackageRunner, build_command, clean_existing_package, copy_rule, validate_target_directory
+from Source.packager import (
+    PackageRunner, build_command, clean_existing_package, copy_rule, validate_recursive_ignores,
+    validate_target_directory,
+)
 
 
 kernel32 = SimpleNamespace(GetConsoleWindow=Mock(return_value=123))
@@ -85,6 +89,34 @@ with tempfile.TemporaryDirectory() as raw:
     assert (package_root / "Extras" / "Extra" / "keep.txt").read_text(encoding="utf-8") == "ok"
     assert not (package_root / "Extras" / "Extra" / ".trash").exists()
 
+    (source / "README.md").write_text("root readme", encoding="utf-8")
+    nested = source / "Nested"
+    nested.mkdir()
+    (nested / "README_TEST.md").write_text("nested readme", encoding="utf-8")
+    (nested / "keep.txt").write_text("nested", encoding="utf-8")
+    cache = nested / "Cache"
+    cache.mkdir()
+    (cache / "skip.txt").write_text("skip", encoding="utf-8")
+    filtered_root = root / "FilteredPackage"
+    filtered_rule = CopyRule("Extra", "Extras", recursive_ignores=["README*.md", "Cache"])
+    files, _ = copy_rule(project_a, filtered_root, filtered_rule)
+    assert files == 2
+    assert (filtered_root / "Extras" / "Extra" / "keep.txt").is_file()
+    assert (filtered_root / "Extras" / "Extra" / "Nested" / "keep.txt").is_file()
+    assert not (filtered_root / "Extras" / "Extra" / "README.md").exists()
+    assert not (filtered_root / "Extras" / "Extra" / "Nested" / "README_TEST.md").exists()
+    assert not (filtered_root / "Extras" / "Extra" / "Nested" / "Cache").exists()
+
+    config_a.copy_rules = [filtered_rule]
+    store.save(config_a)
+    assert store.load(project_a).copy_rules[0].recursive_ignores == ["README*.md", "Cache"]
+
+    parsed = create_parser(None).parse_args([
+        "copy-add", "--project-root", str(project_a), "--source", "Extra",
+        "--ignore", "README*.md", "--ignore", "Cache",
+    ])
+    assert parsed.ignore == ["README*.md", "Cache"]
+
     fake_output = root / "FakeOutput"
     run_uat.write_text(
         "@echo off\n"
@@ -114,6 +146,11 @@ with tempfile.TemporaryDirectory() as raw:
     try:
         validate_target_directory("../escape")
         raise AssertionError("路径越界必须被拒绝")
+    except ValueError:
+        pass
+    try:
+        validate_recursive_ignores(["Nested/README.md"])
+        raise AssertionError("递归忽略项不得包含路径")
     except ValueError:
         pass
 

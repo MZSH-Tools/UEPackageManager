@@ -86,6 +86,7 @@ with tempfile.TemporaryDirectory() as raw:
 
     with patch.object(QFileDialog, "getOpenFileName", return_value=(str(extra_file), "")):
         button(window, "添加文件").click()
+    window.rules.item(0, 3).setText("README*.md; Cache")
     with patch.object(QFileDialog, "getExistingDirectory", return_value=str(extra_directory)):
         button(window, "添加文件夹").click()
     assert window.rules.rowCount() == 2
@@ -99,6 +100,7 @@ with tempfile.TemporaryDirectory() as raw:
     saved = store.load(project)
     assert Path(saved.output_directory) == selected_output
     assert len(saved.copy_rules) == 1 and Path(saved.copy_rules[0].source) == extra_file
+    assert saved.copy_rules[0].recursive_ignores == ["README*.md", "Cache"]
 
     run_uat.write_text(
         "@echo off\n"
