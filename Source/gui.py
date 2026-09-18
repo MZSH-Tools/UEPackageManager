@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
         self.configuration = QComboBox()
         self.configuration.addItems(CONFIGURATIONS)
         form.addRow("打包类型", self.configuration)
-        self.clean_output = QCheckBox("打包前清理当前输出路径中的旧包（每次单独确认）")
+        self.clean_output = QCheckBox("打包前清理当前输出路径中的旧包")
         form.addRow("清理旧包", self.clean_output)
         layout.addWidget(QLabel("附加文件和文件夹（目标位置相对打包根目录）"))
         self.rules = QTableWidget(0, 4)
@@ -126,6 +126,7 @@ class MainWindow(QMainWindow):
         self.engine.setText(config.engine_root)
         self.output_directory.setText(config.output_directory)
         self.configuration.setCurrentText(config.configuration)
+        self.clean_output.setChecked(config.clean_output)
         self.rules.setRowCount(0)
         for rule in config.copy_rules:
             self._append_rule(rule)
@@ -147,7 +148,7 @@ class MainWindow(QMainWindow):
         return ProjectConfig(
             project_root=str(Path(self.project.text()).resolve()), engine_root=self.engine.text().strip(),
             output_directory=str(Path(self.output_directory.text()).resolve()),
-            configuration=self.configuration.currentText(), copy_rules=rules,
+            configuration=self.configuration.currentText(), clean_output=self.clean_output.isChecked(), copy_rules=rules,
         )
 
     def _append_rule(self, rule: CopyRule) -> None:

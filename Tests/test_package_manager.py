@@ -53,11 +53,14 @@ with tempfile.TemporaryDirectory() as raw:
     assert not config_a.copy_rules and not config_b.copy_rules
     assert store.path_for(project_a) != store.path_for(project_b)
     config_a.output_directory = str(root / "OutputA")
+    config_a.clean_output = True
     config_b.output_directory = str(root / "OutputB")
     store.save(config_a)
     store.save(config_b)
     assert store.load(project_a).output_directory.endswith("OutputA")
+    assert store.load(project_a).clean_output
     assert store.load(project_b).output_directory.endswith("OutputB")
+    assert not store.load(project_b).clean_output
     shutil.copy2(store.path_for(project_a), store.path_for(project_b))
     try:
         store.load(project_b)

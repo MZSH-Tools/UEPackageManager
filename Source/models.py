@@ -36,6 +36,7 @@ class ProjectConfig:
     output_directory: str = ""
     configuration: str = "Development"
     platform: str = "Win64"
+    clean_output: bool = False
     copy_rules: list[CopyRule] = field(default_factory=list)
 
     @property
@@ -53,5 +54,6 @@ class ProjectConfig:
             output_directory=str(data.get("output_directory", "")),
             configuration=str(data.get("configuration", "Development")),
             platform=str(data.get("platform", "Win64")),
+            clean_output=bool(data.get("clean_output", False)),
             copy_rules=[CopyRule.from_dict(item) for item in data.get("copy_rules", []) if isinstance(item, dict)],
         )

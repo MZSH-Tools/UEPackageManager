@@ -93,14 +93,19 @@ with tempfile.TemporaryDirectory() as raw:
     window.rules.selectRow(1)
     button(window, "删除选中规则").click()
     assert window.rules.rowCount() == 1
+    window.clean_output.setChecked(True)
 
     with patch.object(QMessageBox, "critical") as critical:
         button(window, "保存当前项目配置").click()
     critical.assert_not_called()
     saved = store.load(project)
     assert Path(saved.output_directory) == selected_output
+    assert saved.clean_output
     assert len(saved.copy_rules) == 1 and Path(saved.copy_rules[0].source) == extra_file
     assert saved.copy_rules[0].recursive_ignores == ["README*.md", "Cache"]
+    window.clean_output.setChecked(False)
+    window._load_config(saved)
+    assert window.clean_output.isChecked()
 
     run_uat.write_text(
         "@echo off\n"
@@ -142,6 +147,7 @@ with tempfile.TemporaryDirectory() as raw:
     information.assert_not_called()
     critical.assert_called_once()
     assert "取消" in critical.call_args.args[2]
+    assert not store.load(project).clean_output
     window.close()
 
 print("gui-buttons: ok")
