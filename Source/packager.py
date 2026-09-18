@@ -227,6 +227,10 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _decode_process_line(line: bytes) -> str:
+    return line.decode("utf-8", errors="backslashreplace").rstrip()
+
+
 def copy_rule(project_root: Path, package_root: Path, rule: CopyRule) -> tuple[int, int]:
     source = resolve_source(project_root, rule.source)
     relative_target = validate_target_directory(rule.target_directory)
@@ -289,7 +293,7 @@ class PackageRunner:
         self._cancelled.clear()
         process = subprocess.Popen(
             command, cwd=config.root_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace", bufsize=1,
+            bufsize=0,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
         self._job_handle = _create_windows_job(process)
@@ -297,7 +301,7 @@ class PackageRunner:
         try:
             assert process.stdout is not None
             for line in process.stdout:
-                on_output(line.rstrip())
+                on_output(_decode_process_line(line))
             return_code = process.wait()
         finally:
             _close_windows_job(self._job_handle)

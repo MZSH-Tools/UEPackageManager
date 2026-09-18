@@ -15,7 +15,7 @@ from Source import app
 from Source.cli import create_parser
 from Source.models import CONFIGURATIONS, CopyRule
 from Source.packager import (
-    PackageRunner, build_command, clean_existing_package, copy_rule, validate_recursive_ignores,
+    PackageRunner, _decode_process_line, build_command, clean_existing_package, copy_rule, validate_recursive_ignores,
     validate_target_directory,
 )
 
@@ -116,6 +116,8 @@ with tempfile.TemporaryDirectory() as raw:
         "--ignore", "README*.md", "--ignore", "Cache",
     ])
     assert parsed.ignore == ["README*.md", "Cache"]
+    assert _decode_process_line(b"valid\n") == "valid"
+    assert _decode_process_line(b"invalid: \xff\n") == r"invalid: \xff"
 
     fake_output = root / "FakeOutput"
     run_uat.write_text(
